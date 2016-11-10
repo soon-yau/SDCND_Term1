@@ -37,6 +37,7 @@ import os
 import numpy as np
 import matplotlib.pyplot as plt
 from sklearn.model_selection import train_test_split
+import time
 
 # TODO: fill this in based on where you saved the training and testing data
 data_path=os.getcwd()+"/traffic-signs-data"
@@ -231,44 +232,74 @@ train_step=tf.train.AdamOptimizer(1e-4).minimize(cross_entropy)
 
 ### Train your model here.
 ### Feel free to use as many code cells as needed.
-import time
-n_epoch=30
+
+n_epoch=15
 batch_size=200
 n_inter=X_train_sub.shape[0]/batch_size
 correct_prediction=tf.equal(tf.argmax(y,1),y_)
 accuracy=tf.reduce_mean(tf.cast(correct_prediction,tf.float32))
+
 train_acc, train_loss=[],[]
+valid_acc = []
+
 with tf.Session() as sess:
     sess.run(tf.initialize_all_variables())
     for epoch in range(n_epoch):
         epoch_loss=0
         epoch_start_t=time.clock()
         for i in range(n_inter):
-            batch_x=X_train_sub[i*batch_size:(i+1)*batch_size]
-            batch_y=y_train_sub[i*batch_size:(i+1)*batch_size]
+	    batch_start=i*batch_size
+            batch_stop=(i+1)*batch_size
+            batch_x=X_train_sub[batch_start:batch_stop]
+            batch_y=y_train_sub[batch_start:batch_stop]
             _,batch_loss=sess.run([train_step,cross_entropy], feed_dict={x:batch_x, y_:batch_y})
             epoch_loss+=batch_loss
-        acc=sess.run(accuracy,feed_dict={x:X_valid_sub, y_:y_valid_sub})
         train_loss+=[epoch_loss/batch_size]
+
+	# Validation accuracy
+        v_acc=sess.run(accuracy,feed_dict={x:X_valid_sub, y_:y_valid_sub})
+	valid_acc+=[v_acc]
+	# Test accuracy, divide into batch to fit into GPU memory
+	n_batch=1000
+	n_inter=y_train_sub.shape[0]/n_batch    
+	t_acc=0
+	for i in range(n_inter):
+	    batch_start=i*batch_size
+            batch_stop=(i+1)*batch_size
+	    t_acc+=sess.run(accuracy,feed_dict={x:X_train_sub[batch_start:batch_stop],
+y_:y_train_sub[batch_start:batch_stop]})		
+	t_acc/=n_inter
+	train_acc+=[t_acc]
+
         epoch_stop_t=time.clock()
-        print("Epoch %d, training accuracy=%.2f, loss=%.2f elapsed=%.2f"%(epoch,acc,epoch_loss/batch_size,epoch_stop_t-epoch_start_t))    
+        print("Epoch %d, valid accuracy=%.2f, train accuracy=%.2f loss=%.2f elapsed=%.2f"%(epoch,v_acc,t_acc,epoch_loss/batch_size,epoch_stop_t-epoch_start_t))    
 
     # Test trained model
     n_batch=1000
     n_inter=n_test/n_batch    
     acc=0
     for i in range(n_inter):
-    	acc+=sess.run(accuracy,feed_dict={x:X_test[i*n_batch:(i+1)*n_batch], 
-y_:y_test[i*n_batch:(i+1)*n_batch]})
+        batch_start=i*batch_size
+        batch_stop=(i+1)*batch_size
+    	acc+=sess.run(accuracy,feed_dict={x:X_test[batch_start:batch_stop],y_:y_test[batch_start:batch_stop]})
         
     print("Test accuracy=%f"%(acc/n_inter))
 
 # Plot
 plt.figure()
 epoch=np.arange(len(train_loss))
+plt.subplot(2,1,1)
 plt.plot(epoch, train_loss)
-plt.show()
+plt.xlabel('epoch')
+plt.ylabel('training loss')
 
+plt.subplot(2,1,2)
+plt.plot(epoch, train_acc, epoch, valid_acc)
+plt.xlabel('epoch')
+plt.ylabel('accuracy')
+plt.legend(['Training','Validation'],bbox_to_anchor=(0., 1.02, 1., .102), loc=3,
+           ncol=2, mode="expand", borderaxespad=0.)
+plt.show()
 
 # ### Question 4
 # 
