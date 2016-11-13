@@ -27,11 +27,10 @@
 # - sizes -> the original width and height of the image, (width, height)
 # - coords -> coordinates of a bounding box around the sign in the image, (x1, y1, x2, y2)
 
-# In[37]:
+# In[157]:
 
 # Load pickled data
 import tensorflow as tf
-import math
 import cv2
 import pickle
 import os
@@ -42,8 +41,7 @@ import time
 
 # TODO: fill this in based on where you saved the training and testing data
 data_path=os.getcwd()+"/traffic-signs-data"
-training_file = os.getcwd()+"/train3.p"
-#training_file = data_path+"/train2.p"
+training_file = data_path+"/train2.p"
 testing_file = data_path+"/test2.p"
 
 with open(training_file, mode='rb') as f:
@@ -55,7 +53,7 @@ X_train, y_train = train['features'], train['labels']
 X_test, y_test = test['features'], test['labels']
 
 
-# In[38]:
+# In[158]:
 
 ### To start off let's do a basic data summary.
 
@@ -71,12 +69,11 @@ image_shape =X_train.shape[1:3]
 # TODO: how many classes are in the dataset
 n_classes = max(y_train)+1
 
-n_channel = X_train.shape[3]
+n_channel=X_train.shape[3]
 
 print("Number of training examples =", n_train)
 print("Number of testing examples =", n_test)
 print("Image data shape =", image_shape)
-print("Number of channels =", n_channel)
 print("Number of classes =", n_classes)
 
 
@@ -96,7 +93,7 @@ classes_start=33  # choose the range of image classes to display
 for cls_idx, cls in enumerate(range(classes_start,classes_start+n_classes_display)):
     idxs = np.where((y_train == cls))[0]
     idxs = np.random.choice(idxs, examples_per_class, replace=False)
-    for i, idx in enumerateran(idxs):
+    for i, idx in enumerate(idxs):
         plt.subplot(n_classes_display, examples_per_class, cls_idx * examples_per_class + i +1)
         plt.imshow(X_train[idx].astype('uint8'))
         plt.axis('off')
@@ -123,10 +120,30 @@ for cls_idx, cls in enumerate(range(classes_start,classes_start+n_classes_displa
 # 
 # Use the code cell (or multiple code cells, if necessary) to implement the first step of your project. Once you have completed your implementation and are satisfied with the results, be sure to thoroughly answer the questions that follow.
 
-# In[39]:
+# In[161]:
 
 ### Preprocess the data here.
 ### Feel free to use as many code cells as needed.
+
+# Look at training dataset distribution
+plt.figure()
+plt.hist(y_train,n_classes)
+plt.title("Distribution of training classes")
+plt.show()
+
+# Split into training and validation sets
+X_train_split, X_valid, y_train_split, y_valid=train_test_split(
+X_train, y_train, test_size=0.1, random_state=0)
+
+# Normalisation by subtracting mean
+X_mean=np.mean(X_train_split, axis=0, dtype=np.float32)
+X_train_split=X_train_split.astype(np.float32)-X_mean
+X_test_norm=X_test.astype(np.float32)-X_mean
+
+# Categories training data according to classes
+X_train_class={}
+for cls in range(n_classes):
+    X_train_class[cls]=X_train_split[y_train_split==cls]
 
 
 # ### Question 1 
@@ -136,7 +153,10 @@ for cls_idx, cls in enumerate(range(classes_start,classes_start+n_classes_displa
 # **Answer:**
 # Normalisation by taking average of all training samples and extract it from all training, validation and test samples. 
 
-# In[40]:
+# In[163]:
+
+"""
+Taken from https://carnd-udacity.atlassian.net/wiki/questions/10322627/
 """
 def transform_image(img,ang_range,shear_range,trans_range):
     '''
@@ -151,7 +171,6 @@ def transform_image(img,ang_range,shear_range,trans_range):
     
     '''
     # Rotation
-
     ang_rot = np.random.uniform(ang_range)-ang_range/2
     rows,cols,ch = img.shape    
     Rot_M = cv2.getRotationMatrix2D((cols/2,rows/2),ang_rot,1)
@@ -176,60 +195,18 @@ def transform_image(img,ang_range,shear_range,trans_range):
     img = cv2.warpAffine(img,shear_M,(cols,rows))
     
     return img
-"""
-### Generate data additional (if you want to!)
-### and split the data into training/validation/testing sets here.
-### Feel free to use as many code cells as needed.
-#hist,bin_edges=np.histogram(y_train, n_classes)
 
-# add extra jitter samples to make the balance the distribution
-"""
-extra_samples=(max(hist)-hist)
-X_train_extra=X_train
-y_train_extra=y_train
-for cls in range(n_classes):
-    class_samples= X_train[y_train==cls]
-    jitter_per_sample=int(math.ceil(extra_samples[cls]/float(len(class_samples))))
-    for original in class_samples:
-        for i in range(jitter_per_sample):
-            copy=transform_image(original,20,10,5)
-            X_train_extra=np.vstack((X_train_extra,np.reshape(copy,(1,image_shape[0],image_shape[1],n_channel))))
-            y_train_extra=np.hstack((y_train_extra,np.array([cls])))
 
-filehandler = open("train3.p","wb")
-new_train={}
-new_train['features']=X_train_extra
-new_train['labels']=y_train_extra
-pickle.dump(new_train,filehandler)
-filehandler.close()
-new_train=[]
 
-plt.subplot(2,1,1)
-plt.hist(y_train,n_classes)
-plt.title("Distribution of training classes")
-plt.subplot(2,1,2)
-plt.hist(y_train_extra,n_classes)
-plt.title("Distribution of test classes")
-plt.show()
+# In[168]:
 
-X_train_sub, X_valid_sub, y_train_sub, y_valid_sub=train_test_split(
-X_train_extra, y_train_extra, test_size=0.2, random_state=0)
-X_train_extra=[]
-y_train_extra=[]
-X_mean=np.mean(X_train_sub, axis=0, dtype=np.float32)
-X_train_sub=X_train_sub.astype(np.float32)-X_mean
-X_test=X_test.astype(np.float32)-X_mean
-"""
-X_train_sub, X_valid_sub, y_train_sub, y_valid_sub=train_test_split(
-X_train, y_train, test_size=0.02, random_state=0)
+def get_batch(X_train_split):
+    X_sample=np.array(np.zeros(n_classes,X_train_split.shape[1],X_train_split.shape[2],X_train_split.shape[3]))
+    for cls in range(n_classes):
+        X_sample[cls]=X_train_split[int(np.random.uniform()*(len(X_train_class[cls]-1)))]
+    return X_sample
+        
 
-X_mean=np.mean(X_train_sub, axis=0, dtype=np.float32)
-X_train_sub=X_train_sub.astype(np.float32)-X_mean
-X_test=X_test.astype(np.float32)-X_mean
-
-#print("n_train_sub",n_train_sub)
-#print("n_train",n_train)
-#print(range(n_train_sub,n_train))
 
 # ### Question 2
 # 
@@ -237,7 +214,7 @@ X_test=X_test.astype(np.float32)-X_mean
 
 # **Answer:**
 
-# In[58]:
+# In[156]:
 
 ### Define your architecture here.
 ### Feel free to use as many code cells as needed.
@@ -256,15 +233,21 @@ def max_pool(x, ksize=2):
                          strides=[1,ksize,ksize,1],
                          padding='SAME'))
 
+
+  
+
+
+# In[169]:
+
 image_size=X_train.shape[1]*X_train.shape[2]*X_train.shape[3]
-x=tf.placeholder(tf.float32,[None,image_shape[0],image_shape[1],n_channel], name="x")
+x=tf.placeholder(tf.float32,[None,X_train.shape[1],X_train.shape[2],X_train.shape[3]], name="x")
 y_=tf.placeholder(tf.int64,[None],name="y_")
-keep_prob=tf.placeholder(tf.float32)
+
 downsample=1
 # Convolutional layer 1
 ksize=3
 n_features1=32
-x_image=tf.reshape(x,[-1,image_shape[0],image_shape[1],n_channel])
+x_image=tf.reshape(x,[-1,X_train.shape[1],X_train.shape[2],X_train.shape[3]])
 W_conv1=weight_variables([ksize,ksize,n_channel,n_features1])
 b_conv1=bias_variables([n_features1])
 h_conv1=conv2d(x_image,W_conv1)+b_conv1
@@ -275,9 +258,7 @@ batch_mean1, batch_var1=tf.nn.moments(h_conv1,[0])
 h_conv1_bn= tf.nn.batch_normalization(h_conv1,batch_mean1,batch_var1,beta1,scale1,1e-9)
 
 h_conv1_relu=tf.nn.relu(h_conv1_bn)
-h_conv1_drop=tf.nn.dropout(h_conv1_relu,keep_prob)
-h_pool1=max_pool(h_conv1_drop)
-
+h_pool1=max_pool(h_conv1_relu)
 downsample*=2
 # Convolutional layer 2
 ksize=3
@@ -293,8 +274,7 @@ batch_mean2, batch_var2=tf.nn.moments(h_conv2,[0])
 h_conv2_bn= tf.nn.batch_normalization(h_conv2,batch_mean2,batch_var2,beta2,scale2,1e-9)
 
 h_conv2_relu=tf.nn.relu(h_conv2_bn)
-h_conv2_drop=tf.nn.dropout(h_conv2_relu,keep_prob)
-h_pool2=max_pool(h_conv2_drop)
+h_pool2=max_pool(h_conv2_relu)
 downsample*=2
 
 # Fully connected layer
@@ -310,19 +290,20 @@ beta_fc1 = tf.Variable(tf.zeros([n_fc_neurons]))
 batch_mean_fc1, batch_var_fc1=tf.nn.moments(h_pool_fc1,[0])
 h_fc1_bn= tf.nn.batch_normalization(h_pool_fc1,batch_mean_fc1,batch_var_fc1,beta_fc1,scale_fc1,1e-9)
 h_fc1=tf.nn.relu(h_fc1_bn)
-# Add dropout
-h_fc1_drop=tf.nn.dropout(h_fc1,keep_prob)
 
 # Output layer
 W_fc2=weight_variables([n_fc_neurons,n_classes])
 b_fc2=weight_variables([n_classes])
-y=tf.matmul(h_fc1_drop,W_fc2)+b_fc2
+y=tf.matmul(h_fc1,W_fc2)+b_fc2
 
 # define loss
 cross_entropy=tf.reduce_mean(tf.nn.sparse_softmax_cross_entropy_with_logits(y,y_))
 # define training
-learning_rate=tf.placeholder(tf.float32)
-train_step=tf.train.AdamOptimizer(learning_rate).minimize(cross_entropy)   
+train_step=tf.train.AdamOptimizer(1e-4).minimize(cross_entropy)   
+
+# Prediction
+correct_prediction=tf.equal(tf.argmax(y,1),y_)
+accuracy=tf.reduce_mean(tf.cast(correct_prediction,tf.float32))
 
 
 # ### Question 3
@@ -333,63 +314,65 @@ train_step=tf.train.AdamOptimizer(learning_rate).minimize(cross_entropy)
 
 # **Answer:**
 
-# In[59]:
+# In[ ]:
 
 ### Train your model here.
 ### Feel free to use as many code cells as needed.
-
-n_epoch=50
-batch_size=100
-n_inter=X_train_sub.shape[0]/batch_size
-correct_prediction=tf.equal(tf.argmax(y,1),y_)
-accuracy=tf.reduce_mean(tf.cast(correct_prediction,tf.float32))
-
 train_acc, train_loss=[],[]
 valid_acc = []
-learn_rate=5e-3
-decay_rate=0.8
+
+n_iter=1000
+#n_inter=2*X_train_split.shape[0]
+
+batch_size=n_classes*4
+batch_x=np.array(np.zeros((batch_size,X_train_split.shape[1],X_train_split.shape[2],X_train_split.shape[3])))
+batch_y=(np.arange(batch_size))%n_classes
+
 with tf.Session() as sess:
     sess.run(tf.initialize_all_variables())
-    for epoch in range(n_epoch):
+    for itr in range(n_iter):
         epoch_loss=0
-        epoch_start_t=time.clock()
-        for i in range(n_inter):
-	    batch_start=i*batch_size
-            batch_stop=(i+1)*batch_size
-            batch_x=X_train_sub[batch_start:batch_stop]
-            batch_y=y_train_sub[batch_start:batch_stop]
-            _,batch_loss=sess.run([train_step,cross_entropy], feed_dict={x:batch_x, y_:batch_y,keep_prob:0.7,learning_rate:learn_rate})
-            epoch_loss+=batch_loss
-        train_loss+=[epoch_loss/batch_size]
-	learn_rate*=decay_rate
-	# Validation accuracy
-        v_acc=sess.run(accuracy,feed_dict={x:X_valid_sub, y_:y_valid_sub, keep_prob:1.0})
-	valid_acc+=[v_acc]
-	# Test accuracy, divide into batch to fit into GPU memory
-	n_batch=500
-	n_inter=y_train_sub.shape[0]/n_batch    
-	t_acc=0
-	for i in range(n_inter):
-	    batch_start=i*batch_size
-            batch_stop=(i+1)*batch_size
-	    t_acc+=sess.run(accuracy,feed_dict={x:X_train_sub[batch_start:batch_stop],
-y_:y_train_sub[batch_start:batch_stop], keep_prob:1.0})		
-	t_acc/=n_inter
-	train_acc+=[t_acc]
+        epoch_start_t=time.clock()        
+        # Get random sample from each classs to achieve balance the data distribution
+        for cls in range(batch_size):
+            batch_x[cls]=X_train_split[int(np.random.uniform()*(len(X_train_class[cls%n_classes]-1)))]
+            
+        _,batch_loss=sess.run([train_step,cross_entropy], feed_dict={x:batch_x, y_:batch_y})
+        epoch_loss+=batch_loss
 
-        epoch_stop_t=time.clock()
-        print("Epoch %d, train accuracy=%.2f, valid accuracy=%.2f loss=%.2f elapsed time=%.2f s"%(epoch,t_acc,v_acc,epoch_loss/batch_size,epoch_stop_t-epoch_start_t))    
+
+        if (itr%100==0):
+            # Validation accuracy            
+            v_acc=sess.run(accuracy,feed_dict={x:X_valid, y_:y_valid})
+            valid_acc+=[v_acc]
+        
+            # Test accuracy, divide into batch to fit into GPU memory
+            n_batch=1000
+            n_seg=y_train_split.shape[0]/n_batch    
+            t_acc=0
+            for i in range(n_seg):
+                batch_start=i*batch_size
+                batch_stop=(i+1)*batch_size
+                t_acc+=sess.run(accuracy,feed_dict={x:X_train_split[batch_start:batch_stop],
+                                                    y_:y_train_split[batch_start:batch_stop]})
+            t_acc/=n_seg
+            train_acc+=[t_acc]
+            train_loss+=[epoch_loss/100]
+            epoch_stop_t=time.clock()
+            print("Epoch %d, train accuracy=%.2f, valid accuracy=%.2f loss=%.2f elapsed time=%.2f s"%(itr%100,t_acc,v_acc,epoch_loss/batch_size,epoch_stop_t-epoch_start_t))    
+            epoch_loss=0
+			
 
     # Test trained model
-    n_batch=500
-    n_inter=int(n_test/n_batch)
+    n_batch=1000
+    n_seg=int(n_test/n_batch)
     acc=0
-    for i in range(n_inter):
+    for i in range(n_seg):
         batch_start=i*batch_size
         batch_stop=(i+1)*batch_size
-    	acc+=sess.run(accuracy,feed_dict={x:X_test[batch_start:batch_stop],y_:y_test[batch_start:batch_stop], keep_prob:1.0})        
-        #print("id=%d acc=%.3f"%(i,acc))
-    print("\nTest accuracy=%f"%(acc/n_inter))
+        acc+=sess.run(accuracy,feed_dict={x:X_test[batch_start:batch_stop],y_:y_test[batch_start:batch_stop]})        
+        print("id=%d acc=%.3f"%(i,acc))
+    print("\nTest accuracy=%f"%(acc/n_seg))
 
    
 # Plot
@@ -407,6 +390,7 @@ plt.ylabel('accuracy')
 plt.legend(['Training','Validation'],bbox_to_anchor=(0., 1.02, 1., .102), loc=3,
            ncol=2, mode="expand", borderaxespad=0.)
 plt.show()
+
 
 # ### Question 4
 # 
