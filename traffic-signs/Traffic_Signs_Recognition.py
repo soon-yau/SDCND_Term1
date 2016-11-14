@@ -42,8 +42,8 @@ import time
 
 # TODO: fill this in based on where you saved the training and testing data
 data_path=os.getcwd()+"/traffic-signs-data"
-training_file = os.getcwd()+"/train3.p"
-#training_file = data_path+"/train2.p"
+#training_file = os.getcwd()+"/train3.p"
+training_file = data_path+"/train2.p"
 testing_file = data_path+"/test2.p"
 
 with open(training_file, mode='rb') as f:
@@ -137,7 +137,7 @@ for cls_idx, cls in enumerate(range(classes_start,classes_start+n_classes_displa
 # Normalisation by taking average of all training samples and extract it from all training, validation and test samples. 
 
 # In[40]:
-"""
+
 def transform_image(img,ang_range,shear_range,trans_range):
     '''
     This function transforms images to generate new images.
@@ -176,26 +176,35 @@ def transform_image(img,ang_range,shear_range,trans_range):
     img = cv2.warpAffine(img,shear_M,(cols,rows))
     
     return img
-"""
+
 ### Generate data additional (if you want to!)
 ### and split the data into training/validation/testing sets here.
 ### Feel free to use as many code cells as needed.
-#hist,bin_edges=np.histogram(y_train, n_classes)
+hist,bin_edges=np.histogram(y_train, n_classes)
 
-# add extra jitter samples to make the balance the distribution
-"""
+# add extra samples to make the balance the distribution
 extra_samples=(max(hist)-hist)
-X_train_extra=X_train
-y_train_extra=y_train
+total_extra_samples=np.sum(extra_samples)
+X_train_extra=np.empty((total_extra_samples,32,32,3))
+y_train_extra=np.empty((total_extra_samples))
+i=0
 for cls in range(n_classes):
     class_samples= X_train[y_train==cls]
-    jitter_per_sample=int(math.ceil(extra_samples[cls]/float(len(class_samples))))
-    for original in class_samples:
-        for i in range(jitter_per_sample):
-            copy=transform_image(original,20,10,5)
-            X_train_extra=np.vstack((X_train_extra,np.reshape(copy,(1,image_shape[0],image_shape[1],n_channel))))
-            y_train_extra=np.hstack((y_train_extra,np.array([cls])))
+    #jitter_per_sample=int(math.ceil(extra_samples[cls]/float(len(class_samples))))
+    #print(cls,extra_samples[cls],len(class_samples),jitter_per_sample)
+    n=len(class_samples)
+    for _ in range(extra_samples[cls]):	
+	original=class_samples[int(np.random.uniform()*n-1)]
+        #copy=transform_image(original,10,5,5)
+        copy=original
+        X_train_extra[i]=np.reshape(copy,(1,32,32,3))
+        y_train_extra[i]=np.array([cls])
+        i+=1
 
+X_train_extra=np.vstack((X_train, X_train_extra))
+y_train_extra=np.hstack((y_train, np.array(y_train_extra)))
+
+"""
 filehandler = open("train3.p","wb")
 new_train={}
 new_train['features']=X_train_extra
@@ -203,7 +212,7 @@ new_train['labels']=y_train_extra
 pickle.dump(new_train,filehandler)
 filehandler.close()
 new_train=[]
-
+"""
 plt.subplot(2,1,1)
 plt.hist(y_train,n_classes)
 plt.title("Distribution of training classes")
@@ -213,7 +222,7 @@ plt.title("Distribution of test classes")
 plt.show()
 
 X_train_sub, X_valid_sub, y_train_sub, y_valid_sub=train_test_split(
-X_train_extra, y_train_extra, test_size=0.2, random_state=0)
+X_train_extra, y_train_extra, test_size=0.02, random_state=0)
 X_train_extra=[]
 y_train_extra=[]
 X_mean=np.mean(X_train_sub, axis=0, dtype=np.float32)
@@ -226,7 +235,7 @@ X_train, y_train, test_size=0.02, random_state=0)
 X_mean=np.mean(X_train_sub, axis=0, dtype=np.float32)
 X_train_sub=X_train_sub.astype(np.float32)-X_mean
 X_test=X_test.astype(np.float32)-X_mean
-
+"""
 #print("n_train_sub",n_train_sub)
 #print("n_train",n_train)
 #print(range(n_train_sub,n_train))
@@ -324,6 +333,23 @@ cross_entropy=tf.reduce_mean(tf.nn.sparse_softmax_cross_entropy_with_logits(y,y_
 learning_rate=tf.placeholder(tf.float32)
 train_step=tf.train.AdamOptimizer(learning_rate).minimize(cross_entropy)   
 
+### Calculate accuracy
+### 
+correct_prediction=tf.equal(tf.argmax(y,1),y_)
+accuracy=tf.reduce_mean(tf.cast(correct_prediction,tf.float32))
+"""
+def calc_accuracy(n_batch=100, X, y):
+    n_inter=y.shape[0]/n_batch    
+    acc=0
+    for i in range(n_inter):
+	batch_start=i*batch_size
+        batch_stop=(i+1)*batch_size
+	acc+=sess.run(correct_prediction,feed_dict={x:X[batch_start:batch_stop],
+y_:y[batch_start:batch_stop], keep_prob:1.0})		
+	t_acc/=n_inter
+	train_acc+=[t_acc]
+"""
+
 
 # ### Question 3
 # 
@@ -338,11 +364,9 @@ train_step=tf.train.AdamOptimizer(learning_rate).minimize(cross_entropy)
 ### Train your model here.
 ### Feel free to use as many code cells as needed.
 
-n_epoch=50
+n_epoch=20
 batch_size=100
 n_inter=X_train_sub.shape[0]/batch_size
-correct_prediction=tf.equal(tf.argmax(y,1),y_)
-accuracy=tf.reduce_mean(tf.cast(correct_prediction,tf.float32))
 
 train_acc, train_loss=[],[]
 valid_acc = []
@@ -363,8 +387,12 @@ with tf.Session() as sess:
         train_loss+=[epoch_loss/batch_size]
 	learn_rate*=decay_rate
 	# Validation accuracy
+	n_batch=500
+	n_inter=y_train_sub.shape[0]/n_batch    
+
         v_acc=sess.run(accuracy,feed_dict={x:X_valid_sub, y_:y_valid_sub, keep_prob:1.0})
 	valid_acc+=[v_acc]
+
 	# Test accuracy, divide into batch to fit into GPU memory
 	n_batch=500
 	n_inter=y_train_sub.shape[0]/n_batch    
@@ -378,7 +406,7 @@ y_:y_train_sub[batch_start:batch_stop], keep_prob:1.0})
 	train_acc+=[t_acc]
 
         epoch_stop_t=time.clock()
-        print("Epoch %d, train accuracy=%.2f, valid accuracy=%.2f loss=%.2f elapsed time=%.2f s"%(epoch,t_acc,v_acc,epoch_loss/batch_size,epoch_stop_t-epoch_start_t))    
+        print("Epoch %d, train accuracy=%.5f, valid accuracy=%.5f loss=%.2f elapsed time=%.2f s"%(epoch,t_acc,v_acc,epoch_loss/batch_size,epoch_stop_t-epoch_start_t))    
 
     # Test trained model
     n_batch=500
@@ -388,7 +416,7 @@ y_:y_train_sub[batch_start:batch_stop], keep_prob:1.0})
         batch_start=i*batch_size
         batch_stop=(i+1)*batch_size
     	acc+=sess.run(accuracy,feed_dict={x:X_test[batch_start:batch_stop],y_:y_test[batch_start:batch_stop], keep_prob:1.0})        
-        #print("id=%d acc=%.3f"%(i,acc))
+        #print("id=%d acc=%.5f"%(i,acc))
     print("\nTest accuracy=%f"%(acc/n_inter))
 
    
