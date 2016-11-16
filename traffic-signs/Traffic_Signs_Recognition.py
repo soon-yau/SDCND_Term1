@@ -39,6 +39,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from sklearn.model_selection import train_test_split
 import time
+import csv
 
 # TODO: fill this in based on where you saved the training and testing data
 data_path=os.getcwd()+"/traffic-signs-data"
@@ -84,6 +85,14 @@ print("Number of classes =", n_classes)
 
 ### Data exploration visualization goes here.
 ### Feel free to use as many code cells as needed.
+signname={}
+with open('signnames.csv','rt') as csvfile:
+    readf=csv.reader(csvfile)
+    readf.next()
+    for row in readf:
+        signname[int(row[0])]=row[1]
+
+print(signname)
 """
 get_ipython().magic(u'matplotlib inline')
 plt.rcParams['figure.figsize'] = (64, 64) # set default size of plots
@@ -127,8 +136,24 @@ for cls_idx, cls in enumerate(range(classes_start,classes_start+n_classes_displa
 
 ### Preprocess the data here.
 ### Feel free to use as many code cells as needed.
+X_train=X_train.astype(np.float32)
+X_test=X_test.astype(np.float32)
 
+"""
+for i in range(n_test):
+    X_test[i]=cv2.cvtColor(cv2.cvtColor(X_test[i], cv2.COLOR_BGR2RGB),cv2.COLOR_BGR2YUV)
 
+for i in range(n_train):
+    X_train[i]=cv2.cvtColor(cv2.cvtColor(X_train[i], cv2.COLOR_BGR2RGB),cv2.COLOR_BGR2YUV)
+
+# Normalise Y channel
+Y_channel_mean=np.mean(X_train[:,:,:,0], axis=0, dtype=np.float32)
+X_train[:,:,:,0]-=Y_channel_mean
+X_test[:,:,:,0]-=Y_channel_mean
+"""
+X_mean=np.mean(X_train,axis=0)
+X_train-=X_mean
+X_test-=X_mean
 # ### Question 1 
 # 
 # _Describe the techniques used to preprocess the data._
@@ -213,6 +238,7 @@ pickle.dump(new_train,filehandler)
 filehandler.close()
 new_train=[]
 """
+"""
 plt.subplot(2,1,1)
 plt.hist(y_train,n_classes)
 plt.title("Distribution of training classes")
@@ -220,14 +246,15 @@ plt.subplot(2,1,2)
 plt.hist(y_train_extra,n_classes)
 plt.title("Distribution of test classes")
 plt.show()
-
+"""
 X_train_sub, X_valid_sub, y_train_sub, y_valid_sub=train_test_split(
 X_train_extra, y_train_extra, test_size=0.02, random_state=0)
 X_train_extra=[]
 y_train_extra=[]
-X_mean=np.mean(X_train_sub, axis=0, dtype=np.float32)
-X_train_sub=X_train_sub.astype(np.float32)-X_mean
-X_test=X_test.astype(np.float32)-X_mean
+
+#X_mean=np.mean(X_train_sub, axis=0, dtype=np.float32)
+#X_train_sub=X_train_sub.astype(np.float32)-X_mean
+#X_test=X_test.astype(np.float32)-X_mean
 """
 X_train_sub, X_valid_sub, y_train_sub, y_valid_sub=train_test_split(
 X_train, y_train, test_size=0.02, random_state=0)
@@ -328,15 +355,18 @@ b_fc2=weight_variables([n_classes])
 y=tf.matmul(h_fc1_drop,W_fc2)+b_fc2
 
 # define loss
-cross_entropy=tf.reduce_mean(tf.nn.sparse_softmax_cross_entropy_with_logits(y,y_))
+cross_entropy=tf.nn.sparse_softmax_cross_entropy_with_logits(logits=y,labels=y_)
+cost=tf.reduce_mean(cross_entropy)
 # define training
 learning_rate=tf.placeholder(tf.float32)
-train_step=tf.train.AdamOptimizer(learning_rate).minimize(cross_entropy)   
+train_step=tf.train.AdamOptimizer(learning_rate).minimize(cost)   
 
 ### Calculate accuracy
 ### 
-correct_prediction=tf.equal(tf.argmax(y,1),y_)
+predict=tf.argmax(tf.nn.softmax(y),dimension=1)
+correct_prediction=tf.equal(predict,y_)
 accuracy=tf.reduce_mean(tf.cast(correct_prediction,tf.float32))
+
 """
 def calc_accuracy(n_batch=100, X, y):
     n_inter=y.shape[0]/n_batch    
@@ -364,63 +394,71 @@ y_:y[batch_start:batch_stop], keep_prob:1.0})
 ### Train your model here.
 ### Feel free to use as many code cells as needed.
 
-n_epoch=20
+n_epoch=10
 batch_size=100
-n_inter=X_train_sub.shape[0]/batch_size
 
 train_acc, train_loss=[],[]
 valid_acc = []
 learn_rate=5e-3
-decay_rate=0.8
-with tf.Session() as sess:
-    sess.run(tf.initialize_all_variables())
-    for epoch in range(n_epoch):
-        epoch_loss=0
-        epoch_start_t=time.clock()
-        for i in range(n_inter):
-	    batch_start=i*batch_size
-            batch_stop=(i+1)*batch_size
-            batch_x=X_train_sub[batch_start:batch_stop]
-            batch_y=y_train_sub[batch_start:batch_stop]
-            _,batch_loss=sess.run([train_step,cross_entropy], feed_dict={x:batch_x, y_:batch_y,keep_prob:0.7,learning_rate:learn_rate})
-            epoch_loss+=batch_loss
-        train_loss+=[epoch_loss/batch_size]
-	learn_rate*=decay_rate
-	# Validation accuracy
-	n_batch=500
-	n_inter=y_train_sub.shape[0]/n_batch    
-
-        v_acc=sess.run(accuracy,feed_dict={x:X_valid_sub, y_:y_valid_sub, keep_prob:1.0})
-	valid_acc+=[v_acc]
-
-	# Test accuracy, divide into batch to fit into GPU memory
-	n_batch=500
-	n_inter=y_train_sub.shape[0]/n_batch    
-	t_acc=0
-	for i in range(n_inter):
-	    batch_start=i*batch_size
-            batch_stop=(i+1)*batch_size
-	    t_acc+=sess.run(accuracy,feed_dict={x:X_train_sub[batch_start:batch_stop],
-y_:y_train_sub[batch_start:batch_stop], keep_prob:1.0})		
-	t_acc/=n_inter
-	train_acc+=[t_acc]
-
-        epoch_stop_t=time.clock()
-        print("Epoch %d, train accuracy=%.5f, valid accuracy=%.5f loss=%.2f elapsed time=%.2f s"%(epoch,t_acc,v_acc,epoch_loss/batch_size,epoch_stop_t-epoch_start_t))    
-
-    # Test trained model
+decay_rate=0.75
+sess=tf.Session()
+#with tf.Session() as sess:
+sess.run(tf.initialize_all_variables())
+for epoch in range(n_epoch):
+    epoch_loss=0
+    epoch_start_t=time.clock()
+    for i in range(int(X_train_sub.shape[0]/batch_size)):
+        batch_start=i*batch_size
+        batch_stop=(i+1)*batch_size
+        batch_x=X_train_sub[batch_start:batch_stop]
+        batch_y=y_train_sub[batch_start:batch_stop]
+        sess.run(train_step, feed_dict={x:batch_x, y_:batch_y,keep_prob:1,learning_rate:learn_rate})
+#        epoch_loss+=batch_loss
+#    train_loss+=[epoch_loss/batch_size]
+    learn_rate*=decay_rate
+    # Validation accuracy
+    predicted_class=sess.run(predict,feed_dict={x:X_train[2000:2020], keep_prob:1.0})        
+    print(predicted_class)
+"""
     n_batch=500
-    n_inter=int(n_test/n_batch)
-    acc=0
+
+    n_inter=y_valid_sub.shape[0]/n_batch    
+    v_acc=0
     for i in range(n_inter):
         batch_start=i*batch_size
         batch_stop=(i+1)*batch_size
-    	acc+=sess.run(accuracy,feed_dict={x:X_test[batch_start:batch_stop],y_:y_test[batch_start:batch_stop], keep_prob:1.0})        
-        #print("id=%d acc=%.5f"%(i,acc))
-    print("\nTest accuracy=%f"%(acc/n_inter))
+        v_acc+=sess.run(accuracy,feed_dict={x:X_valid_sub[batch_start:batch_stop],
+    y_:y_valid_sub[batch_start:batch_stop], keep_prob:1.0})	
+    v_acc/=n_inter
+    valid_acc+=[v_acc]
 
-   
+# Test accuracy, divide into batch to fit into GPU memory
+    n_inter=y_train_sub.shape[0]/n_batch    
+    t_acc=0
+    for i in range(n_inter):
+        batch_start=i*batch_size
+        batch_stop=(i+1)*batch_size
+        t_acc+=sess.run(accuracy,feed_dict={x:X_train_sub[batch_start:batch_stop],
+    y_:y_train_sub[batch_start:batch_stop], keep_prob:1.0})		
+    t_acc/=n_inter
+    train_acc+=[t_acc]
+
+    epoch_stop_t=time.clock()
+    print("Epoch %d, train accuracy=%.5f, valid accuracy=%.5f loss=%.2f elapsed time=%.2f s"%(epoch,t_acc,v_acc,epoch_loss/batch_size,epoch_stop_t-epoch_start_t))    
+
+# Test trained model
+n_inter=int(n_test/n_batch)
+acc=0
+for i in range(n_inter):
+    batch_start=i*batch_size
+    batch_stop=(i+1)*batch_size
+    acc+=sess.run(accuracy,feed_dict={x:X_test[batch_start:batch_stop],y_:y_test[batch_start:batch_stop], keep_prob:1.0})        
+    #print("id=%d acc=%.5f"%(i,acc))
+print("\nTest accuracy=%f"%(acc/n_inter))
+
+"""   
 # Plot
+"""
 plt.figure()
 epoch=np.arange(len(train_loss))
 plt.subplot(2,1,1)
@@ -435,7 +473,7 @@ plt.ylabel('accuracy')
 plt.legend(['Training','Validation'],bbox_to_anchor=(0., 1.02, 1., .102), loc=3,
            ncol=2, mode="expand", borderaxespad=0.)
 plt.show()
-
+"""
 # ### Question 4
 # 
 # _How did you train your model? (Type of optimizer, batch size, epochs, hyperparameters, etc.)_
@@ -465,6 +503,22 @@ plt.show()
 # In[3]:
 
 ### Load the images and plot them here.
+"""
+img=cv2.imread('./pics/images20_2.jpg')
+img=cv2.cvtColor(img, cv2.COLOR_BGR2RGB)       
+#plt.imshow(disp_img.astype('uint8'))
+
+img=cv2.resize(img,(32,32),interpolation=cv2.INTER_CUBIC)
+#img_yuv=np.array(cv2.cvtColor(img, cv2.COLOR_BGR2YUV),dtype=np.float32)
+#img_yuv[:,:,0]-=Y_channel_mean
+img=np.array(img,dtype=np.float32)-X_mean
+img=np.reshape(img,(1,32,32,3))
+"""
+predicted_class=sess.run(predict,feed_dict={x:X_train[2000:2020], keep_prob:1.0})        
+print(predicted_class)
+print("Predict=",signname[predicted_class[0]])
+
+
 ### Feel free to use as many code cells as needed.
 
 
@@ -480,7 +534,7 @@ plt.show()
 
 ### Run the predictions here.
 ### Feel free to use as many code cells as needed.
-
+sess.close()
 
 # ### Question 7
 # 
@@ -512,6 +566,7 @@ plt.show()
 #     "**File -> Download as -> HTML (.html)**. Include the finished document along with this notebook as your submission.
 
 # In[ ]:
+
 
 
 
