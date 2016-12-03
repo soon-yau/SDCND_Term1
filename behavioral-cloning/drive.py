@@ -7,6 +7,7 @@ import socketio
 import eventlet
 import eventlet.wsgi
 import time
+import cv2
 from PIL import Image
 from PIL import ImageOps
 from flask import Flask, render_template
@@ -21,6 +22,12 @@ app = Flask(__name__)
 model = None
 prev_image_array = None
 
+def process_image(img):
+    img=cv2.resize(img,(160,80),interpolation=cv2.INTER_AREA)  
+    img=img[20:,:,:]
+    img=(img/255.0)-0.5    
+    return img
+	
 @sio.on('telemetry')
 def telemetry(sid, data):
     # The current steering angle of the car
@@ -32,7 +39,7 @@ def telemetry(sid, data):
     # The current image from the center camera of the car
     imgString = data["image"]
     image = Image.open(BytesIO(base64.b64decode(imgString)))
-    image_array = np.asarray(image)
+    image_array = process_image(np.asarray(image))
     transformed_image_array = image_array[None, :, :, :]
     # This model currently assumes that the features of the model are just the images. Feel free to change this.
     steering_angle = float(model.predict(transformed_image_array, batch_size=1))
@@ -61,7 +68,7 @@ if __name__ == '__main__':
     help='Path to model definition json. Model weights should be on the same path.')
     args = parser.parse_args()
     with open(args.model, 'r') as jfile:
-        model = model_from_json(json.load(jfile))
+        model = model_from_json(json.load(jfile))	
 
     model.compile("adam", "mse")
     weights_file = args.model.replace('json', 'h5')
