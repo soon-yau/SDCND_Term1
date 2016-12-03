@@ -4,6 +4,7 @@ import tensorflow as tf
 import pickle 
 import cv2
 import h5py
+import json
 from sklearn.model_selection import train_test_split
 from keras.utils import np_utils
 from keras.models import Sequential
@@ -63,20 +64,11 @@ history=model.fit(X_train, Y_train, nb_epoch=1, batch_size=200, verbose=1)
 
 #score = model.evaluate(X_test, Y_test, verbose=1, batch_size=500)
 
-# STOP: Do not change the tests below. Your implementation should pass these tests.
-#print('Test accuracy:%.4f'%score[1])
+# Save model and weights 
+model_json=model.to_json()
+with open("model.json","w") as json_file:
+    json.dump(model_json,outfile)
 
-#model.save('traffic_sign.h5')
-
-# ## Optimization
-# Congratulations! You've built a neural network with convolutions, pooling, dropout, and fully-connected layers, all in just a few lines of code.
-# 
-# Have fun with the model and see how well you can do! Add more layers, or regularization, or different padding, or batches, or more training epochs.
-# 
-# What is the best validation accuracy you can achieve?
-
-# In[ ]:
-
-
+model.save_weights('model.h5')
 
 

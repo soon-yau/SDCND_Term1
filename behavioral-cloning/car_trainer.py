@@ -4,6 +4,7 @@ import tensorflow as tf
 import pickle 
 import cv2
 import h5py
+import json
 from sklearn.model_selection import train_test_split
 from keras.utils import np_utils
 from keras.models import Sequential
@@ -66,7 +67,7 @@ history=model.fit(X_train, Y_train, nb_epoch=1, batch_size=200, verbose=1)
 # Save model and weights 
 model_json=model.to_json()
 with open("model.json","w") as json_file:
-    json_file.write(model_json)
+    json.dump(model_json, json_file)
 
 model.save_weights('model.h5')
 
