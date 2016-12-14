@@ -11,11 +11,22 @@ from keras.utils import np_utils
 from keras.models import Sequential
 from keras.layers import Dense, Activation, Dropout, Flatten
 from keras.layers import Convolution2D, MaxPooling2D, BatchNormalization
-from keras.optimizers import Adam
+from keras.optimizers import Adam, SGD
 from keras.models import load_model
+from keras.preprocessing.image import ImageDataGenerator
+from keras.callbacks import ModelCheckpoint
+
+#from keras import backend as K
+
+#def mean_diff_error(y_true, y_pred):
+#    return K.mean(-y_pred+y_true,axis=-1)
 
 def driving_lesson(train, nb_epoch):
+        # Load dataset
 	X_train, Y_train = train['ctr_frames'], train['steerings']
+
+        # Split into training and validation sets
+        X_train, X_val, Y_train, Y_val=train_test_split(X_train, Y_train, test_size=0.2)
 
 	#Compile and train the model.
 	model=Sequential()
@@ -35,21 +46,35 @@ def driving_lesson(train, nb_epoch):
 
 	# Dense 
 	model.add(Flatten())
-	model.add(Dense(1164, activation='relu'))
-	model.add(Dense(100, activation='relu'))
+
+	#model.add(Dense(1164, activation='relu'))
+	#model.add(Dense(100, activation='relu'))
+	model.add(Dense(500, activation='relu'))
 	model.add(Dense(50, activation='relu'))
 	model.add(Dense(10, activation='relu'))
-
+	model.add(Dropout(0.5))	
 	# Output
 	model.add(Dense(1))
+        
+        # load pre-trained weights
+	model.load_weights('model.h5')
 
-	adam=Adam(lr=5e-3, decay=0.5)
-
+        # compile
+	optimizer=Adam(lr=1e-4, decay=0.5)
 	model.compile(loss='mean_squared_error', 
-				  optimizer='adam', 
-				  metrics=['accuracy'])
+				  optimizer=optimizer, 
+				  metrics=['mean_squared_error'])
 
-	history=model.fit(X_train, Y_train, nb_epoch=nb_epoch, batch_size=200, verbose=1)
+        # Create checkpoints
+        checkpoint=ModelCheckpoint('model.h5',monitor='train_loss',save_weights_only=True,verbose=1)
+        callbacks_list=[checkpoint]
+        # jitter images
+#        train_datagen=ImageDataGenerator(width_shift_range=0.2, rotation_range=20)
+#	train_generator=train_datagen.flow(X_train, Y_train, batch_size=500)
+
+#        model.fit_generator(train_generator, samples_per_epoch=Y_train.shape[0], validation_data=(X_val, #Y_val),nb_epoch=nb_epoch,callbacks=callbacks_list, verbose=1)
+
+	history=model.fit(X_train, Y_train, nb_epoch=nb_epoch, batch_size=700, validation_data=(X_val, Y_val),callbacks=callbacks_list, verbose=1)
 
 	# **Validation Accuracy**: (fill in here)
 	#score = model.evaluate(X_test, Y_test, verbose=1, batch_size=500)
