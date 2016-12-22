@@ -53,10 +53,10 @@ df=pd.read_csv(data_path+'driving_log.csv', skiprows=0,skipinitialspace=True,
 
 steering_center=np.float32(df['steering'])
 steering_left=np.float32(df['steering']+0.25)
-steering_right=np.float32(df['steering']-0.25)
+#steering_right=np.float32(df['steering']-0.25)
 
-steerings=np.hstack((steerings, steering_center,steering_left,steering_right))
-frames=np.hstack((frames, df['center'],df['left'],df['right']))
+steerings=np.hstack((steerings, steering_center,steering_left))
+frames=np.hstack((frames, df['center'],df['left']))
 
 
 # In[ ]:
@@ -164,7 +164,7 @@ def image_generator_(frames, steerings, batch_size=200):
 
 # In[21]:
 
-total_nb_epoch=4
+total_nb_epoch=5
 for epoch in range(total_nb_epoch):
     image_generator=image_generator_(frames, steerings, batch_size=1000)
     model.fit_generator(image_generator, samples_per_epoch=20000, nb_epoch=1, verbose=1)
