@@ -19,7 +19,7 @@ The image is converted from BGR to HSV and the brightness is reduced by multiply
 ## Image Size
 The top 32 rows of image is cropped out to remove portion that are unrelated to road and driving conditions, while the bottom 20 rows are cropped to remove the image of car dashboard. Then the image is resize to 64x64 to reduce computational and memory cost.
 
-Many of these effects are illustrated in driving_lesson.ipynb.
+Many of these effects are illustrated in **driving_lesson.ipynb** 
 
 # Convolutional Neural Network
 The convolution neural network architecture in Nvida's "End to End Learning for Self-Driving Cars" paper https://arxiv.org/abs/1604.07316 was taken as reference. However, since the image size and numbers are far fewer in this project, the last convolutional layer and first fully connected layer were removed. 
