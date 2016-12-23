@@ -68,7 +68,7 @@ df=pd.read_csv(data_path+'driving_log.csv', skiprows=0,skipinitialspace=True,
 
 steering_center=np.float32(df['steering'])
 #steering_left=np.float32(df['steering']+0.25)
-steering_right=np.float32(df['steering']-0.5)
+steering_right=np.float32(df['steering']-0.25)
 
 steerings=np.hstack((steerings, steering_center,steering_right))
 frames=np.hstack((frames, df['center'],df['right']))
