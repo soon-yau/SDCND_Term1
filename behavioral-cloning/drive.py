@@ -23,9 +23,12 @@ model = None
 prev_image_array = None
 
 def process_image(img):
-    img=cv2.resize(img,(160,80),interpolation=cv2.INTER_AREA)  
-    img=img[20:,:,:]
-    img=(img/255.0)-0.5    
+    
+    #img=cv2.imread(img)
+    img=img[32:-20,:,:]
+    img=cv2.resize(img,(64,64))
+    img=cv2.cvtColor(img,cv2.COLOR_RGB2HSV)
+    img=np.float32(img/255-0.5)
     return img
 	
 @sio.on('telemetry')
