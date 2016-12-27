@@ -23,18 +23,20 @@ Many of these effects are illustrated in **driving_lesson.ipynb**
 
 # Convolutional Neural Network
 The convolution neural network architecture in Nvida's "End to End Learning for Self-Driving Cars" paper https://arxiv.org/abs/1604.07316 was taken as reference. However, since the image size and numbers are far fewer in this project, the last convolutional layer and first fully connected layer were removed. 
+Batchnormalisation layer is used in the first convolutional layer, removing the need to normalise the image.
+
 
 The finally architecture is consist of:
-1. Conv layer - 24 filters, 5x5 kernel size, stride 2x2, ReLU activation
-2. Conv layer - 36 filters, 5x5 kernel size, stride 2x2, ReLU activation
-3. Conv layer - 48 filters, 5x5 kernel size, stride 2x2, ReLU activation
-4. Conv layer - 64 filters, 3x3 kernel size, stride 1x1, ReLU activation
-5. Dropout layer - 0.5
-6. Fully connected layer - 500 neurons, ReLU activation
-7. Fully connected layer - 50 neurons, ReLU activation
-8. Fully connected layer - 10 neurons, ReLU activation
-9. Dropout layer - 0.5
-10. Fully connected layer - 1 neurons
+1. Conv layer - 24 filters, 5x5 kernel size, stride 2x2, Batch normalisation, ReLU activation
+3. Conv layer - 36 filters, 5x5 kernel size, stride 2x2, ReLU activation
+4. Conv layer - 48 filters, 5x5 kernel size, stride 2x2, ReLU activation
+5. Conv layer - 64 filters, 3x3 kernel size, stride 1x1, ReLU activation
+6. Dropout layer - 0.5
+7. Fully connected layer - 500 neurons, ReLU activation
+8. Fully connected layer - 50 neurons, ReLU activation
+9. Fully connected layer - 10 neurons, ReLU activation
+10. Dropout layer - 0.5
+11. Fully connected layer - 1 neurons
 
 # Training
 Adam optimizer with learning rate of 5e-3 and decay rate of 0.75 was used to train the neural network and the minimum mean square error (MSE) was choosen as metrics.
@@ -43,4 +45,7 @@ A image generator was written to generate image for random camera choice, image 
 
 Since the dataset is unbalanced with many more images on straight road i.e. steering angle of 0, it is therefore crucial to make sure that the ratio of 0 degree is reduced in training (together with data augmentation) so that neural network could learn to steer at curves with larger steering angle. A probabiliy thresholding method (credit to Vivek Yadav https://chatbotslife.com/using-augmentation-to-mimic-human-driving-496b569760a9#.xv4b8t1zl) was used to allow more large angles to be train initially, and gradually include more 0 degree angle in subsequent epochs. 
 
-MSE was used mainly to see that the loss function decreases in every epoch to make sure the network is being trainned correctly. However, lower MSE does not guarantee that car could drive properly, it may actually be overfitting the higher steering angle and cause the car to drive in zig-zag fashion. Therefore, if I see zig-zagging in simulation, I would reduce the number of epochs and re-run the simulation. I used 5 epochs in final model that resulted in MSE of slightly over 0.04. 
+MSE was used mainly to see that the loss function decreases in every epoch to make sure the network is being trainned correctly. 
+
+The dataset is split into training and validation sets and checkpoint was used to save the best weights based on validation loss.
+

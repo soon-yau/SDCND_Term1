@@ -16,7 +16,7 @@ from sklearn.utils import shuffle
 
 from keras.utils import np_utils
 from keras.models import Sequential
-from keras.layers import Dense, Activation, Dropout, Flatten, Convolution2D
+from keras.layers import Dense, Activation, Dropout, Flatten, Convolution2D, BatchNormalization
 from keras.optimizers import Adam, SGD
 from keras.models import load_model
 from keras.preprocessing.image import ImageDataGenerator
@@ -32,8 +32,26 @@ data_path='./data/udacity/'
 dataset=pd.read_csv(data_path+'driving_log.csv', skiprows=1,skipinitialspace=True,
               names=['center','left','right','steering','throttle','brake','speed'])
 
+# split training and validation set
+dataset, valid = train_test_split(dataset, test_size = 0.15)
 
+# Pre-process validation set
+steering_center=np.float32(valid['steering'])
+steering_left=np.float32(valid['steering']+0.25)
+steering_right=np.float32(valid['steering']-0.25)
+Y_val=np.hstack((steering_center,steering_left,steering_right))
 
+frames=np.hstack((valid['center'],valid['left'],valid['right']))
+X_val=np.empty((len(frames), 64,64,3),np.float32)
+
+for idx, fpath in enumerate(frames):    
+    img=cv2.imread(data_path+fpath.strip())
+    img=cv2.cvtColor(img,cv2.COLOR_BGR2HSV)
+    img=img[32:-20,:,:]
+    img=cv2.resize(img,(64,64))
+    #img=np.float32(img/255-0.5)
+    X_val[idx]=img
+    
 # In[3]:
 
 def process_img(line_data):
@@ -82,7 +100,7 @@ def process_img(line_data):
         angle=-1*angle
 
     # normalise
-    img=np.float32(img/255-0.5)
+    #img=np.float32(img/255-0.5)
     
     return img, angle
 
@@ -94,28 +112,35 @@ model=Sequential()
 
 # Convolutional 1
 model.add(Convolution2D(nb_filter=24,nb_row=5, nb_col=5, subsample=(2,2),
-                        border_mode='valid', activation='relu', input_shape=(64,64,3)))
+                        border_mode='valid', input_shape=(64,64,3)))
+model.add(BatchNormalization())
+model.add(Activation('relu'))
+                        
 model.add(Convolution2D(nb_filter=36,nb_row=5, nb_col=5, subsample=(2,2),
-                        border_mode='valid' ,activation='relu'))
+                        border_mode='valid', activation='relu'))                        
+
 model.add(Convolution2D(nb_filter=48,nb_row=5, nb_col=5, subsample=(2,2),
-                        border_mode='valid' ,activation='relu'))
+                        border_mode='valid', activation='relu'))
+                        
 model.add(Convolution2D(nb_filter=64,nb_row=3, nb_col=3, subsample=(1,1),
-                        border_mode='valid' ,activation='relu'))
+                        border_mode='valid', activation='relu'))
 
 model.add(Dropout(0.5))
+
 # Dense 
 model.add(Flatten())
 
-model.add(Dense(500, activation='relu'))
-model.add(Dense(50, activation='relu'))
-model.add(Dense(10, activation='relu'))
+model.add(Dense(500,activation='relu'))
+model.add(Dense(50,activation='relu'))
+model.add(Dense(10,activation='relu'))
+
 model.add(Dropout(0.5))
 
 # Output
 model.add(Dense(1))
     
 # load pre-trained weights
-#model.load_weights('model.h5')
+model.load_weights('model.h5')
 
 # compile
 optimizer=Adam(lr=5e-3, decay=0.75)
@@ -155,16 +180,22 @@ def image_generator_(bias_threshold, batch_size=200):
 
 
 # In[6]:
+# Create checkpoints
+checkpoint=ModelCheckpoint('model.h5',monitor='val_loss',save_weights_only=True,
+save_best_only=True,verbose=1)
+callbacks_list=[checkpoint]
 
-total_nb_epoch=5
+# Training 
+total_nb_epoch=2
 
 for epoch in range(total_nb_epoch):
     bias_threshold=1/(epoch+1)
     image_generator=image_generator_(bias_threshold, batch_size=1000)
-    model.fit_generator(image_generator, samples_per_epoch=20000, nb_epoch=1, verbose=1)
+    model.fit_generator(image_generator, samples_per_epoch=20000, nb_epoch=1,
+    validation_data=(X_val, Y_val), callbacks=callbacks_list, verbose=1)
     
 # Save weight
-model.save_weights('model.h5')
+#model.save_weights('model.h5')
 
 
 # In[ ]:
